@@ -19,6 +19,8 @@
 # Fortran module files
 *.mod
 
+*.uasset
+
 # Compiled Static libraries
 *.lai
 *.la
@@ -72,3 +74,5 @@ Plugins/*/Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+
+*.uasset
