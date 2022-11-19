@@ -7,6 +7,7 @@ UABAnimInstance::UABAnimInstance()
 {
 	CurrentPawnSpeed = 0.f;
 	IsInAir = false;
+	IsDead = false;
 
 	// 애니메이션 몽타주 에셋을 받아온다.
 	static ConstructorHelpers::FObjectFinder<UAnimMontage> ATTACK_MONTAGE(TEXT("AnimMontage'/Game/Animations/SK_Mannequin_Skeleton_Montage.SK_Mannequin_Skeleton_Montage'"));
@@ -24,7 +25,10 @@ void UABAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	// TryGetPawnOwner : 폰이 유효한지 검사하는 함수
 	// 입력 -> 로직 -> 애니메이션 업데이트 순서로 진행되므로, 이 함수가 실행될 때는 폰이 유효하지 않을 수 있다.
 	auto Pawn = TryGetPawnOwner();
-	if (::IsValid(Pawn))
+	if (!IsValid(Pawn))
+		return;
+
+	if (!IsDead)
 	{
 		CurrentPawnSpeed = Pawn->GetVelocity().Size();
 
@@ -40,12 +44,14 @@ void UABAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 
 void UABAnimInstance::PlayAttackMontage()
 {
+	ABCHECK(!IsDead)
 	// 애님몽타주를 플레이한다.
 	Montage_Play(AttackMontage, 1.0f);
 }
 
 void UABAnimInstance::JumpToAttackMontageSection(int32 newSection)
 {
+	ABCHECK(!IsDead)
 	ABCHECK(Montage_IsPlaying(AttackMontage));
 
 	// 섹션이름, 애님몽타주 인자로, 설정된 섹션을 재생한다.

@@ -31,6 +31,7 @@ public:
 	// 멀티캐스트 델리게이트 타입 변수
 	FOnNextAttackCheckDelegate OnNextAttackCheck;
 	FOnAttackHitCheckDelegate OnAttackHitCheck;
+	void SetDeadAnim() { IsDead = true; }
 
 private:
 	// 블루프린트와 연관된 함수는 UFUNCTION매크로로 정의해줘야 한다.
@@ -50,6 +51,9 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Pawn, META = (AllowPrivateAccess = true))
 	bool IsInAir;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Pawn, META = (AllowPrivateAccess = true))
+	bool IsDead;
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Attack, META = (AllowPrivateAccess = true))
 	UAnimMontage* AttackMontage;

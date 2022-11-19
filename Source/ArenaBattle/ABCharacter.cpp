@@ -3,6 +3,8 @@
 
 #include "ABCharacter.h"
 #include "ABAnimInstance.h"
+#include "DrawDebugHelpers.h"
+#include "ABWeapon.h"
 
 // Sets default values
 AABCharacter::AABCharacter()
@@ -45,6 +47,32 @@ AABCharacter::AABCharacter()
 
 	MaxCombo = 4;
 	AttackEndComboState();
+
+	GetCapsuleComponent()->SetCollisionProfileName(TEXT("ABCharacter"));
+
+	AttackRange = 200.f;
+	AttackRadius = 50.f;
+
+ // 	FName WeaponSocket(TEXT("hand_rSocket"));
+ //
+ //	auto CurWeapon = GetWorld()->SpawnActor<AABWeapon>(FVector::ZeroVector, FRotator::ZeroRotator);
+ //
+ //	if (nullptr != CurWeapon)
+ //	{
+ //		CurWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponSocket);
+ //	}
+
+ //	if (GetMesh()->DoesSocketExist(WeaponSocket))
+ //	{
+ //		Weapon = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WEAPON"));
+ //		static ConstructorHelpers::FObjectFinder<USkeletalMesh> SK_WEAPON(TEXT("SkeletalMesh'/Game/InfinityBladeWeapons/Weapons/Blade/Swords/Blade_BlackKnight/SK_Blade_BlackKnight.SK_Blade_BlackKnight'"));
+ //		if (SK_WEAPON.Succeeded())
+ //		{
+ //			Weapon->SetSkeletalMesh(SK_WEAPON.Object);
+ //		}
+ //
+ //		Weapon->SetupAttachment(GetMesh(), WeaponSocket);
+ //	}
 }
 
 // Called when the game starts or when spawned
@@ -167,6 +195,8 @@ void AABCharacter::PostInitializeComponents()
 			}
 		}
 	);
+
+	ABAnim->OnAttackHitCheck.AddUObject(this, &AABCharacter::AttackCheck);
 }
 
 // Called to bind functionality to input
@@ -306,5 +336,84 @@ void AABCharacter::AttackEndComboState()
 	IsComboInputOn = false;
 	CanNextCombo = false;
 	CurrentCombo = 0;
+}
+
+void AABCharacter::AttackCheck()
+{
+	// 충돌 판정을 담아오는 구조체
+	FHitResult HitResult;
+	FCollisionQueryParams Params(NAME_None, false, this);
+
+	// 플레이어의 전방 2M 범위에 판정
+	// Start부터 End까지 구를 "쓸어서" 충돌판정 한다.
+	// 캡슐모양 충돌판정이라고 생각하면 됨
+	bool bResult = GetWorld()->SweepSingleByChannel(
+		HitResult,
+		GetActorLocation(),
+		GetActorLocation() + GetActorForwardVector() * 200.f,
+		FQuat::Identity,
+		ECollisionChannel::ECC_GameTraceChannel2,
+		FCollisionShape::MakeSphere(50.f),
+		Params);
+
+#if ENABLE_DRAW_DEBUG
+	// 디버그 드로잉
+	// 캡슐의 원통 끝 위치
+	FVector TraceVec = GetActorForwardVector() * AttackRange;
+
+	// 플레이어 위치 + (원통 끝 위치 / 2) = 캡슐의 중앙
+	FVector Center = GetActorLocation() + TraceVec * 0.5f;
+
+	// 캡슐의 높이 지정
+	float HalfHeight = AttackRange * 0.5f + AttackRadius;
+
+	// 누운 상태로 그려야 함 
+	FQuat CapsuleRot = FRotationMatrix::MakeFromZ(TraceVec).ToQuat();
+	FColor DrawColor = bResult ? FColor::Green : FColor::Red;
+	float DebugLifeTime = 5.0f;
+
+	DrawDebugCapsule(GetWorld(),
+		Center,
+		HalfHeight,
+		AttackRadius,
+		CapsuleRot,
+		DrawColor,
+		false,
+		DebugLifeTime);
+#endif
+
+	if (bResult)
+	{
+		if (IsValid(HitResult.GetActor()))
+		{
+			ABLOG(Warning, TEXT("Hit Actor Name : %s"), *HitResult.GetActor()->GetName());
+
+			// 액터에게 대미지 준다.
+			FDamageEvent DamageEvent;
+			HitResult.GetActor()->TakeDamage(50.0f, DamageEvent, GetController(), this);
+		}
+	}
+
+}
+
+// 언리얼 데미지 프레임워크에서 제공하는 함수
+// AActor에 정의된 함수를 오버라이드 해서 사용
+// 3번째 인자로 AController를 받는 이유 : 공격의 주체는 "플레이어 자신"이기 떄문
+float AABCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,
+	AActor* DamageCauser)
+{
+	float FinalDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	ABLOG(Warning, TEXT("Actor : %s took Damage %f"), *GetName(), FinalDamage);
+
+	if (FinalDamage > 0.f)
+	{
+		ABAnim->SetDeadAnim();
+
+		// 충돌판정 끈다.
+		SetActorEnableCollision(false);
+	}
+
+	return FinalDamage;
 }
 
