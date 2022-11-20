@@ -42,8 +42,11 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	bool CanSetWeapon(); 
+	void SetWeapon(class AABWeapon* NewWeapon);
+
 	UPROPERTY(VisibleAnywhere, Category = Weapon)
-	USkeletalMeshComponent* Weapon;
+	class AABWeapon* CurrentWeapon;
 
 	// 캐릭터는 SkeletalMesh, Capsule 등을 이미 가지고 있기 때문에 카메라와 암만 명시적으로 생성해줌
 	UPROPERTY(VisibleAnywhere, Category = Camera)
