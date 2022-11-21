@@ -3,8 +3,12 @@
 
 #include "ABCharacter.h"
 #include "ABAnimInstance.h"
+#include "ABCharacterStatsComponent.h"
 #include "DrawDebugHelpers.h"
 #include "ABWeapon.h"
+#include "Components/WidgetComponent.h"
+#include "Editor/WidgetCompilerLog.h"
+#include "ABCharacterWidget.h"
 
 // Sets default values
 AABCharacter::AABCharacter()
@@ -14,6 +18,8 @@ AABCharacter::AABCharacter()
 
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SPRINGARM"));
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("CAMERA"));
+	CharacterStat = CreateDefaultSubobject<UABCharacterStatsComponent>(TEXT("CHARACTERSTAT"));
+	HPBarWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("HPBARWIDGET"));
 
 	SpringArm->SetupAttachment(GetCapsuleComponent());
 	Camera->SetupAttachment(SpringArm);
@@ -21,6 +27,7 @@ AABCharacter::AABCharacter()
 	GetMesh()->SetRelativeLocationAndRotation(FVector(0.f, 0.f, -88.f), FRotator(0.f, -90.f, 0.f));
 	SpringArm->TargetArmLength = 400.f;
 	SpringArm->SetRelativeRotation(FRotator(-15.f, 0.f, 0.f));
+	HPBarWidget->SetupAttachment(GetMesh());
 
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> SK_CARDBOARD(TEXT("SkeletalMesh'/Game/InfinityBladeWarriors/Character/CompleteCharacters/SK_CharM_Cardboard.SK_CharM_Cardboard'"));
 	if (SK_CARDBOARD.Succeeded())
@@ -52,6 +59,15 @@ AABCharacter::AABCharacter()
 
 	AttackRange = 200.f;
 	AttackRadius = 50.f;
+
+	HPBarWidget->SetRelativeLocation(FVector(0.f, 0.f, 180.f));
+	HPBarWidget->SetWidgetSpace(EWidgetSpace::Screen);
+	static ConstructorHelpers::FClassFinder<UABCharacterWidget> UI_HUD(TEXT("/Game/UI/UI_HPBar.UI_HPBar_C"));
+	if (UI_HUD.Succeeded())
+	{
+		HPBarWidget->SetWidgetClass(UI_HUD.Class);
+		HPBarWidget->SetDrawSize(FVector2D(150.f, 50.f));
+	}
 }
 
 // Called when the game starts or when spawned
@@ -175,6 +191,21 @@ void AABCharacter::PostInitializeComponents()
 	);
 
 	ABAnim->OnAttackHitCheck.AddUObject(this, &AABCharacter::AttackCheck);
+
+	CharacterStat->OnHpIsZero.AddLambda([this]()->void
+		{
+			ABLOG(Warning, TEXT("OnHpZero"));
+			ABAnim->SetDeadAnim();
+			SetActorEnableCollision(false);
+		});
+
+	HPBarWidget->InitWidget();
+	auto CharacterWidget = Cast<UABCharacterWidget>(HPBarWidget->GetUserWidgetObject());
+	ABCHECK(CharacterWidget != nullptr);
+	if (nullptr != CharacterWidget)
+	{
+		CharacterWidget->BindCharacterStat(CharacterStat);
+	}
 }
 
 // Called to bind functionality to input
@@ -388,7 +419,7 @@ void AABCharacter::AttackCheck()
 
 			// 액터에게 대미지 준다.
 			FDamageEvent DamageEvent;
-			HitResult.GetActor()->TakeDamage(50.0f, DamageEvent, GetController(), this);
+			HitResult.GetActor()->TakeDamage(CharacterStat->GetAttack(), DamageEvent, GetController(), this);
 		}
 	}
 
@@ -404,13 +435,7 @@ float AABCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEve
 
 	ABLOG(Warning, TEXT("Actor : %s took Damage %f"), *GetName(), FinalDamage);
 
-	if (FinalDamage > 0.f)
-	{
-		ABAnim->SetDeadAnim();
-
-		// 충돌판정 끈다.
-		SetActorEnableCollision(false);
-	}
+	CharacterStat->SetDamage(FinalDamage);
 
 	return FinalDamage;
 }

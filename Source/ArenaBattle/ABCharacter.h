@@ -48,12 +48,19 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = Weapon)
 	class AABWeapon* CurrentWeapon;
 
+	UPROPERTY(VisibleAnywhere, Category = Stat)
+	class UABCharacterStatsComponent* CharacterStat;
+
 	// 캐릭터는 SkeletalMesh, Capsule 등을 이미 가지고 있기 때문에 카메라와 암만 명시적으로 생성해줌
 	UPROPERTY(VisibleAnywhere, Category = Camera)
 	USpringArmComponent* SpringArm;
 
 	UPROPERTY(VisibleAnywhere, Category = Camera)
 	UCameraComponent* Camera;
+
+	// Widget Component는 기본 모듈에 포함되어있지 않기 때문에, Build.cs에서 "UMG"모듈을 Import한다고 설정해주어야 한다.
+	UPROPERTY(VisibleAnywhere, Category = UI)
+	class UWidgetComponent* HPBarWidget;
 
 private:
 	void UpDown(float NewAxisValue);
